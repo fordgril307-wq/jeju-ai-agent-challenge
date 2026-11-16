@@ -13,7 +13,7 @@
 | 2안 | 밤길 안심 예보관 — 야간 안전 수요 7일 예보, 순찰·조명 우선순위 | 제주자치경찰단 순찰 계획 담당 | 32종 (센터는 밤 인원, 위험·시설은 공개 데이터) |
 
 ## 자료조사
-- 📄 [docs/topic-research-brief_v4.pdf](docs/topic-research-brief_v4.pdf) — 57쪽, 두 안 동일 구조 (문제 · 타깃층 · 데이터 · 에이전트 활용 · 시연 · 기대효과 · 차별화·위험), 추천 없는 비교, 데이터·기사 출처 포함
+- 📄 [docs/topic-research-brief_v4.pdf](docs/topic-research-brief_v4.pdf) · 수정용 [PPTX](docs/topic-research-brief_v4.pptx) — 57쪽, 두 안 동일 구조 (문제 · 타깃층 · 데이터 · 에이전트 활용 · 시연 · 기대효과 · 차별화·위험), 추천 없는 비교, 데이터·기사 출처 포함
 - 이전 자료: [docs/team-brief_topic-selection.pdf](docs/team-brief_topic-selection.pdf) (11/6, 탐나는전 vs 쓰레기)
 
 ## 시연 (숫자는 모두 예시 값)
