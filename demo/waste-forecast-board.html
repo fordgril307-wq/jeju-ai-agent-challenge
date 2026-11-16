@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>쓰레기 예보관</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 상단 질문창 → 7일 예보판(지도+표) → 시나리오·조치안·안내문 2열, 근거 패널은 맨 아래. 제주테크노파크 UI 색 */
+:root{
+  --bg:#F7FBFF; --surface:#FFFFFF; --ink:#16213A; --sub:#5A6680; --line:#D8E1EE;
+  --brand:#2649A4; --brand2:#3271D3; --brandPale:#E6EEFB; --green:#4E8A12; --greenFill:#88C038;
+  --g0:#EEF2F8; --g1:#FFF2B8; --g2:#FFC978; --g3:#F07B5A; --g3ink:#9A2E14;
+  --f-head:"IBM Plex Sans KR","Noto Sans KR",system-ui,sans-serif; --f-body:"Noto Sans KR",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1526; --surface:#162038; --ink:#E6ECF7; --sub:#9DAAC4; --line:#2A3654; --brand:#7FA2F0; --brand2:#5B8FE6; --brandPale:#1E2C4D;
+  --green:#A6D865; --greenFill:#88C038; --g0:#1B2642; --g1:#5A5220; --g2:#7A5320; --g3:#8E3524; --g3ink:#FFD2C4; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E1526; --surface:#162038; --ink:#E6ECF7; --sub:#9DAAC4; --line:#2A3654; --brand:#7FA2F0; --brand2:#5B8FE6; --brandPale:#1E2C4D;
+  --green:#A6D865; --greenFill:#88C038; --g0:#1B2642; --g1:#5A5220; --g2:#7A5320; --g3:#8E3524; --g3ink:#FFD2C4; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--f-head);font-size:28px;margin:0;color:var(--brand);letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;color:var(--sub);font-family:var(--f-body);font-weight:500;letter-spacing:0}
+.badge{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--brandPale);color:var(--brand);font-weight:700}
+.demo{background:var(--g1);color:var(--ink);font-size:12.5px;padding:8px 12px;border-radius:8px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+h2{font-family:var(--f-head);font-size:16px;margin:0 0 10px;display:flex;gap:8px;align-items:center}
+h2 .step{font-size:11px;color:var(--surface);background:var(--brand);border-radius:4px;padding:1px 6px;letter-spacing:.04em}
+.ask{display:flex;gap:8px;flex-wrap:wrap}
+.ask input{flex:1 1 280px;min-width:0;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1.5px solid var(--brand);background:var(--brand);color:#fff;padding:9px 14px;font-weight:700}
+button.ghost{background:transparent;color:var(--brand)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--greenFill);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{font-size:12.5px;font-weight:500;padding:5px 10px;background:var(--brandPale);color:var(--brand);border-color:transparent}
+.answer{margin-top:12px;border-left:4px solid var(--brand2);background:var(--bg);padding:10px 12px;border-radius:0 8px 8px 0}
+.answer b.big{font-size:16px;display:block;margin-bottom:4px}
+.answer .ev{font-size:12px;color:var(--sub);margin-top:6px}
+.grid2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+svg text{font-family:var(--f-body)}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-weight:700;color:var(--sub);font-size:12px}
+td.area{text-align:left;font-weight:700}
+td.cell{border-radius:4px}
+.lv0{background:var(--g0)}.lv1{background:var(--g1)}.lv2{background:var(--g2)}.lv3{background:var(--g3);color:var(--g3ink);font-weight:700}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.ctrl{display:grid;gap:12px}
+.ctrl label{font-size:13px;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.ctrl input[type=range]{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select{font:inherit;padding:7px 8px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:4px}
+.kpi{background:var(--bg);border-radius:8px;padding:10px}
+.kpi b{font-family:var(--f-head);font-size:22px;display:block;color:var(--brand);font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--sub)}
+.kpi.hot b{color:var(--g3ink)}
+:root:not([data-theme]) .kpi.hot b,:root[data-theme="light"] .kpi.hot b{color:#C2410C}
+ul.acts{margin:6px 0 0;padding-left:18px;font-size:13.5px}
+ul.acts li{margin:3px 0}
+.notice{white-space:pre-wrap;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:12px;font-size:14px;min-height:120px}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{padding:5px 10px;font-size:12.5px}
+.tabs button[aria-pressed="false"]{background:transparent;color:var(--brand)}
+.evid{font-size:12.5px;color:var(--sub)}
+.evid table td,.evid table th{text-align:left;white-space:normal}
+.muted{color:var(--sub);font-size:12px}
+@media (prefers-reduced-motion:no-preference){td.cell{transition:background .25s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>쓰레기 예보관<small>제주 생활·관광폐기물 7일 배출 예보 에이전트 · 시연판</small></h1>
+    <span class="badge">제주 AI·빅데이터 AI Agent 챌린지 · 팀 미나리 백김치</span>
+  </header>
+  <div class="demo">시연용 화면. 예보 숫자는 <b>예시 값</b>, 실제 버전은 센터 음식물·종량제봉투 데이터와 허브 유동인구·날씨로 계산. 질문 해석은 현재 규칙 기반, 실제 버전은 LLM의 도구 선택·호출 방식.</div>
+
+  <section aria-labelledby="h-ask">
+    <h2 id="h-ask"><span class="step">1 질문</span>말로 묻기</h2>
+    <form class="ask" id="askForm">
+      <input id="q" aria-label="질문" value="다음 주 서귀포 어디가 위험해?">
+      <button type="submit">예보 보기</button>
+    </form>
+    <div class="chips" id="chips"></div>
+    <div class="answer" id="answer" aria-live="polite"></div>
+  </section>
+
+  <div class="grid2">
+    <section aria-labelledby="h-map">
+      <h2 id="h-map"><span class="step">2 핫스팟</span>7일 중 최고 등급 지도</h2>
+      <svg id="map" viewBox="0 0 420 240" role="img" aria-label="제주 읍면동별 핫스팟 개략도"></svg>
+      <div class="legend"><span><i class="lv0"></i>평소</span><span><i class="lv1"></i>1단계 +15%</span><span><i class="lv2"></i>2단계 +30%</span><span><i class="lv3"></i>3단계 +50%</span></div>
+      <p class="muted">위치 개략도. 원 크기 = 7일 예상 배출량.</p>
+    </section>
+    <section aria-labelledby="h-board">
+      <h2 id="h-board"><span class="step">3 예보판</span>지역별 7일 배출 예보 (톤/일)</h2>
+      <div class="tblwrap"><table id="board"></table></div>
+      <p class="muted">칸 색 = 평소(지난 4주 같은 요일 평균) 대비 증가율. 예측 오차 ±12%(예시).</p>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section aria-labelledby="h-sim">
+      <h2 id="h-sim"><span class="step">4 만약에</span>시나리오 조절</h2>
+      <div class="ctrl">
+        <div><label for="cruise">추가 크루즈 입항 <span id="cruiseV">0척</span></label><input type="range" id="cruise" min="0" max="4" value="0"></div>
+        <div><label for="tour">관광객 변화 <span id="tourV">+0%</span></label><input type="range" id="tour" min="-20" max="40" step="5" value="0"></div>
+        <div class="row"><label for="hol" style="font-weight:700">연휴</label>
+          <select id="hol"><option value="none">없음</option><option value="cn">해외 연휴(중국 등) 11/20~22</option><option value="kr">국내 연휴 11/21~23</option></select></div>
+        <div class="row"><label for="rain" style="font-weight:700">비 오는 날</label>
+          <select id="rain"><option value="-1">예보대로(11/19)</option><option value="none">비 없음</option><option value="3">11/20도 비</option></select></div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+    </section>
+    <section aria-labelledby="h-act">
+      <h2 id="h-act"><span class="step">5 조치안</span>수거 증편 권고 (담당자 확인 후 적용)</h2>
+      <ul class="acts" id="acts"></ul>
+      <p class="muted">증편 기준(예시): 평소의 110%를 넘는 물량을 수거차 1회 2.5톤으로 나눔. 실제 기준은 시 청소 부서 결정 사항.</p>
+    </section>
+  </div>
+
+  <section aria-labelledby="h-note">
+    <h2 id="h-note"><span class="step">6 안내문</span>현장 다국어 안내문 초안</h2>
+    <div class="row" style="margin-bottom:8px"><label for="spot" style="font-weight:700;font-size:13px">장소</label><select id="spot"></select></div>
+    <div class="tabs" role="group" aria-label="언어"><button data-l="ko" aria-pressed="true">한국어</button><button data-l="zh" aria-pressed="false">中文(简体)</button><button data-l="en" aria-pressed="false">English</button></div>
+    <div class="notice" id="notice"></div>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="copy" type="button">안내문 복사</button><span class="muted" id="copied" aria-live="polite"></span></div>
+  </section>
+
+  <section aria-labelledby="h-ev" class="evid">
+    <h2 id="h-ev"><span class="step">근거</span>이 예보에 쓰는 데이터 (실제 버전)</h2>
+    <div class="tblwrap"><table>
+      <tr><th>데이터</th><th>출처</th><th>쓰임</th></tr>
+      <tr><td>음식물쓰레기 배출현황 제주시·서귀포 (일 단위, 2016~)</td><td>제주빅데이터센터 5-05·5-06, 원본 반출 가능</td><td>배출지별 실측 배출량, 학습 기준선</td></tr>
+      <tr><td>종량제봉투 판매실적 (읍면동·일, 2012~)</td><td>센터 5-03, 반출 가능</td><td>일반쓰레기 선행지표(봉투 판매 → 며칠 뒤 배출)</td></tr>
+      <tr><td>대형폐기물 현황 제주시</td><td>센터 5-04, 반출 가능</td><td>이사·명절 전후 대형 배출 수요</td></tr>
+      <tr><td>일일 날씨 정보</td><td>센터 5-02</td><td>기온·강수 효과</td></tr>
+      <tr><td>읍면동 내국인·외국인 단기체류 유동인구</td><td>제주데이터허브(583·589), 센터 4-11·4-15(집계만 반출)</td><td>관광객 몫 추정</td></tr>
+      <tr><td>입도객·크루즈 입항·연휴 달력</td><td>허브 580·582, 항만·공휴일 공개자료</td><td>앞으로 7일 관광 수요 입력</td></tr>
+    </table></div>
+    <p>숫자는 코드가 계산하고 AI는 설명만 담당. 답변마다 사용 데이터·기간·예측 오차 함께 표시.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  const DAYS=["11/17 화","11/18 수","11/19 목","11/20 금","11/21 토","11/22 일","11/23 월"];
+  const WEEK=[0.97,0.98,1.0,1.05,1.14,1.12,0.96];        // 요일 계수(예시)
+  // 지역: 평소 일 배출(톤, 예시), 관광 몫, 위치(경도,위도), 행정시, 크루즈 영향
+  const A=[
+    {n:"우도면",city:"제주시",base:4.2,t:.75,x:126.95,y:33.50,cr:0},
+    {n:"성산읍",city:"서귀포시",base:9.8,t:.55,x:126.90,y:33.44,cr:0},
+    {n:"구좌읍",city:"제주시",base:8.1,t:.40,x:126.80,y:33.54,cr:0},
+    {n:"조천읍",city:"제주시",base:11.5,t:.35,x:126.66,y:33.53,cr:0},
+    {n:"건입동(제주항)",city:"제주시",base:7.4,t:.30,x:126.545,y:33.52,cr:.5,dx:14},
+    {n:"용담2동(공항)",city:"제주시",base:9.0,t:.45,x:126.475,y:33.525,cr:0,dx:-12},
+    {n:"연동·노형동",city:"제주시",base:31.0,t:.28,x:126.48,y:33.47,cr:0,dy:1},
+    {n:"애월읍",city:"제주시",base:16.2,t:.38,x:126.33,y:33.46,cr:0},
+    {n:"한림읍",city:"제주시",base:13.4,t:.33,x:126.26,y:33.41,cr:0},
+    {n:"대천동(중문)",city:"서귀포시",base:10.6,t:.60,x:126.42,y:33.25,cr:.5},
+    {n:"천지·동홍동",city:"서귀포시",base:14.8,t:.40,x:126.56,y:33.25,cr:0},
+    {n:"표선면",city:"서귀포시",base:7.6,t:.42,x:126.83,y:33.33,cr:0}
+  ];
+  const TOUR=[1.0,1.0,0.98,1.06,1.18,1.12,0.95];        // 관광 수요 지수(예시)
+  const $=id=>document.getElementById(id);
+  const S={cruise:0,tour:0,hol:"none",rain:"-1"};
+  function grade(r){return r>=1.5?3:r>=1.3?2:r>=1.15?1:0}
+  function calc(){
+    return A.map(a=>{
+      const days=DAYS.map((d,i)=>{
+        let tf=TOUR[i]*(1+S.tour/100);
+        if(S.hol==="cn"&&i>=3&&i<=5) tf*= a.t>.5?1.45:1.2;
+        if(S.hol==="kr"&&i>=4&&i<=6) tf*=1.25;
+        const rainDay=(S.rain==="-1"&&i===2)||(S.rain==="3"&&(i===2||i===3));
+        if(rainDay) tf*=0.82;
+        let v=a.base*WEEK[i]*((1-a.t)+a.t*tf);
+        if(a.cr && (i===3||i===4)) v+= S.cruise*3000*0.4/1000*a.cr*2;   // 1척 3,000명·1인 0.4kg(예시)
+        const usual=a.base*WEEK[i];
+        return {v,usual,r:v/usual,g:grade(v/usual)};
+      });
+      return {...a,days,max:Math.max(...days.map(d=>d.g)),sum:days.reduce((s,d)=>s+d.v,0)};
+    });
+  }
+  function renderBoard(R){
+    let h="<thead><tr><th>지역</th>"+DAYS.map(d=>`<th>${d}</th>`).join("")+"</tr></thead><tbody>";
+    R.slice().sort((a,b)=>b.max-a.max||b.sum-a.sum).forEach(a=>{
+      h+=`<tr><td class="area">${a.n}</td>`+a.days.map(d=>`<td class="cell lv${d.g}" title="평소 ${d.usual.toFixed(1)}톤 대비 ${Math.round((d.r-1)*100)}%">${d.v.toFixed(1)}</td>`).join("")+"</tr>";
+    });
+    $("board").innerHTML=h+"</tbody>";
+  }
+  function renderMap(R){
+    const X=x=>20+(x-126.15)/(127.0-126.15)*380, Y=y=>220-(y-33.18)/(33.58-33.18)*200;
+    let s=`<ellipse cx="${X(126.55)}" cy="${Y(33.38)}" rx="182" ry="86" fill="var(--brandPale)" stroke="var(--line)"/>`;
+    s+=`<ellipse cx="${X(126.955)}" cy="${Y(33.505)}" rx="9" ry="6" fill="var(--brandPale)" stroke="var(--line)"/>`;
+    R.forEach(a=>{
+      const r=5+Math.sqrt(a.sum)*1.3, c=["var(--g0)","var(--g1)","var(--g2)","var(--g3)"][a.max];
+      s+=`<circle cx="${X(a.x)}" cy="${Y(a.y)}" r="${r.toFixed(1)}" fill="${c}" stroke="var(--brand)" stroke-width="1"/>`;
+      const lx=X(a.x)+(a.dx||0), ly=a.dy?Y(a.y)+r+11:Y(a.y)-r-3;
+      s+=`<text x="${lx}" y="${Math.max(10,ly)}" font-size="9.5" text-anchor="middle" fill="var(--ink)">${a.n.replace(/\(.*\)/,"")}</text>`;
+    });
+    s+=`<text x="${X(126.55)}" y="${Y(33.38)+4}" font-size="11" text-anchor="middle" fill="var(--sub)">한라산</text>`;
+    $("map").innerHTML=s;
+  }
+  function trucks(a){return a.days.reduce((s,d)=>s+Math.max(0,Math.ceil((d.v-d.usual*1.1)/2.5)),0)}
+  function renderActs(R){
+    const hot=R.filter(a=>a.max>0).sort((a,b)=>b.max-a.max||b.sum-a.sum);
+    const tot=R.reduce((s,a)=>s+a.sum,0), usual=R.reduce((s,a)=>s+a.days.reduce((t,d)=>t+d.usual,0),0);
+    const g3=R.filter(a=>a.max===3).length, tk=R.reduce((s,a)=>s+trucks(a),0);
+    $("kpis").innerHTML=`<div class="kpi"><b>${tot.toFixed(0)}톤</b><span>7일 예상 (평소 ${usual.toFixed(0)}톤)</span></div>
+      <div class="kpi ${g3?'hot':''}"><b>${g3}곳</b><span>3단계 핫스팟</span></div><div class="kpi"><b>${tk}회</b><span>권고 증편 수거</span></div>`;
+    if(!hot.length){$("acts").innerHTML="<li>이번 주는 평소 수준. 고정 수거 일정 유지.</li>";return}
+    $("acts").innerHTML=hot.slice(0,6).map(a=>{
+      const peak=a.days.reduce((m,d,i)=>d.r>a.days[m].r?i:m,0), t=trucks(a);
+      const extra=a.max>=2?" · 관광지 안내 인력 배치, 다국어 안내문 부착":"";
+      return `<li><b>${a.n}</b> ${a.max}단계 — 최고 ${DAYS[peak]} (+${Math.round((a.days[peak].r-1)*100)}%), 수거 ${t}회 증편${extra}</li>`;
+    }).join("");
+  }
+  // 안내문
+  const N={
+    ko:s=>`[${s} 방문객께]\n쓰레기는 되가져가시거나 가까운 클린하우스에 버려 주세요.\n· 재활용품은 종류별로 나눠 주세요.\n· 음식물 쓰레기는 전용 수거함에 넣어 주세요.\n· 해변·도로변에 버리면 과태료가 부과될 수 있습니다.\n깨끗한 제주를 함께 지켜 주셔서 감사합니다.`,
+    zh:s=>`【致${s}的游客】\n请将垃圾带走，或投放到附近的垃圾分类投放点（Clean House）。\n· 可回收物请分类投放。\n· 厨余垃圾请投入专用回收箱。\n· 在海边或路边乱扔垃圾可能会被罚款。\n感谢您与我们一起守护干净的济州！`,
+    en:s=>`[To visitors of ${s}]\nPlease take your trash with you or use the nearest Clean House collection point.\n· Sort recyclables by type.\n· Put food waste in the food-waste bins.\n· Littering on beaches or roadsides may result in a fine.\nThank you for helping keep Jeju clean!`
+  };
+  const SPOT={ko:["우도","성산일출봉","공항","중문관광단지","함덕해변"],zh:["牛岛","城山日出峰","济州机场","中文旅游区","咸德海边"],en:["Udo Island","Seongsan Ilchulbong","Jeju Airport","Jungmun Resort","Hamdeok Beach"]};
+  let lang="ko";
+  function renderNotice(){const i=+$("spot").value;$("notice").textContent=N[lang](SPOT[lang][i])}
+  $("spot").innerHTML=SPOT.ko.map((s,i)=>`<option value="${i}">${s}</option>`).join("");
+  document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{lang=b.dataset.l;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-pressed",x===b));renderNotice()}));
+  $("spot").addEventListener("change",renderNotice);
+  $("copy").addEventListener("click",()=>{const t=$("notice").textContent;const ok=()=>$("copied").textContent="복사했습니다";
+    try{navigator.clipboard.writeText(t).then(ok,()=>{selectNotice()})}catch(e){selectNotice()}});
+  function selectNotice(){const r=document.createRange();r.selectNodeContents($("notice"));const s=getSelection();s.removeAllRanges();s.addRange(r);$("copied").textContent="선택했습니다. 길게 눌러 복사하세요"}
+  // 질문
+  const Q=["다음 주 서귀포 어디가 위험해?","해외 연휴에 우도 수거 얼마나 늘려야 해?","크루즈 2척 더 들어오면?","비 오는 날 차이는?"];
+  $("chips").innerHTML=Q.map(q=>`<button type="button">${q}</button>`).join("");
+  $("chips").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{$("q").value=b.textContent;answer()}));
+  function answer(){
+    const q=$("q").value;
+    if(/연휴|국경절/.test(q)){S.hol="cn";$("hol").value="cn"}
+    const m=q.match(/크루즈\s*(\d)/); if(m){S.cruise=+m[1];$("cruise").value=m[1]}
+    if(/비/.test(q)&&!/비교/.test(q)){S.rain="3";$("rain").value="3"}
+    update();
+    const R=calc(); let pool=R;
+    if(/서귀포/.test(q)) pool=R.filter(a=>a.city==="서귀포시"); else if(/제주시/.test(q)) pool=R.filter(a=>a.city==="제주시");
+    const named=R.find(a=>q.includes(a.n.replace(/\(.*|·.*/,"").replace(/[읍면동]$/,"")));
+    if(named) pool=[named];
+    const top=pool.slice().sort((a,b)=>b.max-a.max||b.sum-a.sum)[0];
+    const peak=top.days.reduce((m,d,i)=>d.r>top.days[m].r?i:m,0);
+    const cond=[S.hol!=="none"?($("hol").selectedOptions[0].text):null,S.cruise?`크루즈 ${S.cruise}척 추가`:null,S.rain==="3"?"11/19~20 비":null].filter(Boolean).join(", ")||"기본 예보";
+    $("answer").innerHTML=`<b class="big">${top.n}: ${top.max?top.max+"단계 핫스팟":"평소 수준"} — ${DAYS[peak]}에 평소보다 ${Math.round((top.days[peak].r-1)*100)}% 많은 ${top.days[peak].v.toFixed(1)}톤 예상</b>
+      7일 합계 ${top.sum.toFixed(1)}톤, 권고 증편 ${trucks(top)}회. 조건: ${cond}.
+      <div class="ev">근거: 음식물 배출(센터 5-05·5-06)·종량제봉투 판매(5-03) 지난 4주 같은 요일 평균 + 유동인구·날씨 보정 · 예측 오차 ±12% · <b>시연용 예시 값</b></div>`;
+  }
+  $("askForm").addEventListener("submit",e=>{e.preventDefault();answer()});
+  function update(){
+    $("cruiseV").textContent=S.cruise+"척"; $("tourV").textContent=(S.tour>0?"+":"")+S.tour+"%";
+    const R=calc(); renderBoard(R); renderMap(R); renderActs(R);
+  }
+  $("cruise").addEventListener("input",e=>{S.cruise=+e.target.value;update()});
+  $("tour").addEventListener("input",e=>{S.tour=+e.target.value;update()});
+  $("hol").addEventListener("change",e=>{S.hol=e.target.value;update()});
+  $("rain").addEventListener("change",e=>{S.rain=e.target.value;update()});
+  update(); renderNotice(); answer();
+})();
+</script>
+</body>
+</html>

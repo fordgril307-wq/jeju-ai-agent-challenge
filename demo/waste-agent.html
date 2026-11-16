@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>쓰레기 예보관 에이전트</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 왼쪽: 목표 입력 + 에이전트 작업 기록(단계별 등장), 오른쪽: 완성물 탭 + 승인. 제주테크노파크 UI 색 */
+:root{
+  --bg:#F7FBFF; --surface:#FFFFFF; --ink:#16213A; --sub:#5A6680; --line:#D8E1EE;
+  --brand:#2649A4; --brand2:#3271D3; --brandPale:#E6EEFB; --ok:#4E8A12; --okPale:#EEF6E2; --okFill:#88C038;
+  --warn:#B45309; --warnPale:#FFF4E0; --bad:#B42318;
+  --g0:#EEF2F8; --g1:#FFF2B8; --g2:#FFC978; --g3:#F07B5A; --g3ink:#9A2E14;
+  --f-head:"IBM Plex Sans KR","Noto Sans KR",system-ui,sans-serif; --f-body:"Noto Sans KR",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1526; --surface:#162038; --ink:#E6ECF7; --sub:#9DAAC4; --line:#2A3654; --brand:#7FA2F0; --brand2:#5B8FE6; --brandPale:#1E2C4D;
+  --ok:#A6D865; --okPale:#20301A; --warn:#F5B76B; --warnPale:#3A2A12; --bad:#FF8A80;
+  --g0:#1B2642; --g1:#5A5220; --g2:#7A5320; --g3:#8E3524; --g3ink:#FFD2C4; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E1526; --surface:#162038; --ink:#E6ECF7; --sub:#9DAAC4; --line:#2A3654; --brand:#7FA2F0; --brand2:#5B8FE6; --brandPale:#1E2C4D;
+  --ok:#A6D865; --okPale:#20301A; --warn:#F5B76B; --warnPale:#3A2A12; --bad:#FF8A80;
+  --g0:#1B2642; --g1:#5A5220; --g2:#7A5320; --g3:#8E3524; --g3ink:#FFD2C4; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.55}
+.wrap{max-width:1240px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px}
+h1{font-family:var(--f-head);font-size:26px;margin:0;color:var(--brand)}
+h1 small{display:block;font-size:13px;color:var(--sub);font-family:var(--f-body);font-weight:500}
+.badge{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--brandPale);color:var(--brand);font-weight:700}
+.demo{background:var(--g1);font-size:12.5px;padding:8px 12px;border-radius:8px}
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:14px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+h2{font-family:var(--f-head);font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.ask{display:flex;gap:8px;flex-wrap:wrap}
+.ask input{flex:1 1 220px;min-width:0;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1.5px solid var(--brand);background:var(--brand);color:#fff;padding:9px 14px;font-weight:700}
+button.ghost{background:transparent;color:var(--brand)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--okFill);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{font-size:12.5px;font-weight:500;padding:5px 10px;background:var(--brandPale);color:var(--brand);border-color:transparent}
+.log{display:grid;gap:8px;margin-top:12px;max-height:none}
+.msg{border-radius:10px;padding:9px 12px;font-size:13.5px}
+.msg.user{background:var(--brand);color:#fff;justify-self:end;max-width:90%}
+.msg.agent{background:var(--bg);border:1px solid var(--line)}
+.msg.agent b{color:var(--brand)}
+.step{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:13px;align-items:start}
+.ico{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;background:var(--brand2);margin-top:1px}
+.ico.ok{background:var(--ok)} .ico.warn{background:var(--warn)} .ico.bad{background:var(--bad)} .ico.ask{background:var(--okFill);color:#14296A}
+.step .t{font-weight:700}
+.step .d{color:var(--sub);font-size:12.5px}
+.tool{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--brandPale);color:var(--brand);padding:1px 6px;border-radius:4px}
+.step.warnbox .d{color:var(--warn)}
+.plan{margin:4px 0 0;padding-left:18px;color:var(--sub);font-size:12.5px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tabs button{padding:6px 10px;font-size:12.5px}
+.tabs button[aria-selected="false"]{background:transparent;color:var(--brand)}
+.empty{color:var(--sub);font-size:13.5px;padding:30px 10px;text-align:center}
+.doc{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;font-size:13.5px;line-height:1.7}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--sub);font-size:11.5px}
+td.area{text-align:left;font-weight:700}
+.lv0{background:var(--g0)}.lv1{background:var(--g1)}.lv2{background:var(--g2)}.lv3{background:var(--g3);color:var(--g3ink);font-weight:700}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin-top:6px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:3px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+@media (max-width:520px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--bg);border-radius:8px;padding:8px 10px}
+.kpi b{font-family:var(--f-head);font-size:19px;display:block;color:var(--brand);font-variant-numeric:tabular-nums}
+.kpi span{font-size:11.5px;color:var(--sub)}
+.approve{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.approve .note{font-size:12.5px;color:var(--sub);flex:1 1 220px}
+.done{background:var(--okPale);color:var(--ok);font-weight:700;border-radius:8px;padding:8px 12px;font-size:13px}
+svg text{font-family:var(--f-body)}
+.muted{color:var(--sub);font-size:12px}
+.langs{display:flex;gap:6px;margin-bottom:8px}
+.langs button{padding:4px 9px;font-size:12px}
+.langs button[aria-pressed="false"]{background:transparent;color:var(--brand)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>쓰레기 예보관 에이전트<small>목표 한 줄 → 데이터 조회·예보·자기 검증 → 수거 계획 완성물까지</small></h1>
+    <span class="badge">제주 AI·빅데이터 AI Agent 챌린지 · 팀 미나리 백김치</span>
+  </header>
+  <div class="demo">시연용 화면. 예보·검증 수치는 <b>예시 값</b>, 작업 과정은 실제 버전의 도구 호출 순서 재현. 실제 버전은 LLM이 계획·도구 선택, 계산은 Python 코드 담당.</div>
+
+  <div class="grid">
+    <section aria-labelledby="h-chat">
+      <h2 id="h-chat">대화 · 작업 기록</h2>
+      <form class="ask" id="askForm">
+        <input id="q" aria-label="에이전트에게 맡길 일" value="다음 주 수거 계획 짜 줘">
+        <button type="submit" id="go">맡기기</button>
+      </form>
+      <div class="chips" id="chips"></div>
+      <div class="log" id="log" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="h-out">
+      <h2 id="h-out">완성물</h2>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div id="out"><div class="empty">왼쪽에서 일을 맡기면 이곳에 예보판·계획서·문자·안내문·반출 신청서·검증 보고 생성</div></div>
+      <div class="approve" id="approve" hidden>
+        <span class="note" id="checkNote"></span>
+        <button class="ghost" id="revise" type="button">수정 요청</button>
+        <button id="ok" type="button">승인</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait=ms=>new Promise(r=>setTimeout(r,reduce?0:ms));
+  const DAYS=["11/23 월","11/24 화","11/25 수","11/26 목","11/27 금","11/28 토","11/29 일"];
+  const WEEK=[0.96,0.97,0.98,1.0,1.06,1.15,1.12];
+  const TOUR=[0.95,0.97,0.85,1.05,1.15,1.45,1.35];   // 관광 수요 지수(예시), 11/25 비
+  const A=[
+    {n:"우도면",c:"제주시",base:4.2,t:.75},
+    {n:"성산읍",c:"서귀포시",base:9.8,t:.55},
+    {n:"구좌읍",c:"제주시",base:8.1,t:.40},
+    {n:"조천읍",c:"제주시",base:11.5,t:.35},
+    {n:"건입동",c:"제주시",base:7.4,t:.30,cr:.6},
+    {n:"용담2동",c:"제주시",base:9.0,t:.45},
+    {n:"연동·노형동",c:"제주시",base:31.0,t:.28},
+    {n:"애월읍",c:"제주시",base:16.2,t:.38},
+    {n:"대천동",c:"서귀포시",base:10.6,t:.60,cr:1},
+    {n:"천지·동홍동",c:"서귀포시",base:14.8,t:.40},
+    {n:"표선면",c:"서귀포시",base:7.6,t:.42},
+    {n:"한림읍",c:"제주시",base:13.4,t:.33}
+  ];
+  const ST={region:null,cruise:1,ran:false,lang:"ko",tab:"board",R:null};
+  const grade=r=>r>=1.5?3:r>=1.3?2:r>=1.15?1:0;
+  function calc(){
+    return A.filter(a=>!ST.region||ST.region==="전체"||a.c===ST.region).map(a=>{
+      const days=DAYS.map((d,i)=>{
+        let v=a.base*WEEK[i]*((1-a.t)+a.t*TOUR[i]*1.08);
+        if(a.cr&&i===3) v+=ST.cruise*3000*0.4/1000*a.cr*1.6;   // 11/26 강정·제주항 입항, 1척 3,000명·0.4kg(예시)
+        const usual=a.base*WEEK[i]; return {v,usual,r:v/usual,g:grade(v/usual)};
+      });
+      const trucks=days.map(d=>Math.max(0,Math.ceil((d.v-d.usual*1.1)/2.5)));
+      return {...a,days,trucks,tk:trucks.reduce((s,x)=>s+x,0),max:Math.max(...days.map(d=>d.g)),sum:days.reduce((s,d)=>s+d.v,0)};
+    }).sort((a,b)=>b.max-a.max||b.sum-a.sum);
+  }
+  // ---------- 기록 출력 ----------
+  function add(html,cls){const d=document.createElement("div");d.className=cls;d.innerHTML=html;$("log").appendChild(d);return d}
+  const step=(ic,cls,t,d)=>add(`<span class="ico ${cls}">${ic}</span><div><div class="t">${t}</div>${d?`<div class="d">${d}</div>`:""}</div>`,"step"+(cls==="warn"?" warnbox":""));
+  function clearLog(){$("log").innerHTML=""}
+  // ---------- 시나리오 ----------
+  async function runPlan(){
+    lock(true);
+    add(esc($("q").value),"msg user");
+    await wait(400);
+    if(!ST.region){
+      step("?","ask","되묻기","대상 지역 확인 필요");
+      const m=add(`어느 지역 계획인지 선택 필요<div class="chips" id="regionChips"><button type="button">제주시</button><button type="button">서귀포시</button><button type="button">전체</button></div>`,"msg agent");
+      m.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ST.region=b.textContent;m.querySelectorAll("button").forEach(x=>x.disabled=true);add(ST.region,"msg user");continuePlan()}));
+      lock(false,true);return;
+    }
+    continuePlan();
+  }
+  async function continuePlan(){
+    lock(true);
+    await wait(300);
+    const s1=step("1","","목표 정리",`${ST.region} · 11/23(월)~11/29(일) 생활폐기물 수거 계획 + 증편 대상 + 완성물 4종`);
+    await wait(500);
+    add(`<span class="ico">2</span><div><div class="t">계획 수립</div><ol class="plan"><li>과거 배출·봉투 판매 조회</li><li>다음 주 관광객·날씨·크루즈 조회</li><li>7일 예보 계산</li><li>지난 4주로 자기 검증</li><li>증편·처리 여력 계산</li><li>완성물 작성·반출 검사</li></ol></div>`,"step");
+    await wait(600);
+    step("✓","ok",`<span class="tool">load_history</span> 과거 배출 조회`,"센터 5-05·5-06 음식물, 5-03 종량제봉투 · 최근 8주 · 12개 읍면동 · 2.1초");
+    await wait(500);
+    step("✓","ok",`<span class="tool">get_weather</span> 날씨 예보`,"기상청 단기예보(1~3일)·중기예보(4~7일) · 11/25(수) 비 예보 반영");
+    await wait(500);
+    step("✗","bad",`<span class="tool">get_visitors</span> 관광공사 방문자수 API`,"응답 시간 초과 → 1회 재시도 실패");
+    await wait(500);
+    step("!","warn","우회: 저장본 사용","11/15 저장본(하루 전 값) 사용, 보고서에 '방문자수 1일 지연' 표시");
+    await wait(500);
+    step("✓","ok",`<span class="tool">get_flights</span> · <span class="tool">get_cruise</span>`,`항공 운항 스케줄 7일 · 크루즈 11/26(목) 강정항 입항 ${ST.cruise}척 확인`);
+    await wait(600);
+    ST.R=calc();
+    step("✓","ok",`<span class="tool">forecast_waste</span> 7일 예보 계산`,`${ST.R.length}개 읍면동 × 7일 · 오차 구간 포함`);
+    await wait(600);
+    step("✓","ok",`<span class="tool">backtest</span> 자기 검증`,"지난 4주를 가리고 예보 → 오차 ±11% (요일 기준선 ±18%) → 기준선보다 정확, 예보 채택");
+    await wait(500);
+    const tk=ST.R.reduce((s,a)=>s+a.tk,0);
+    step("✓","ok",`<span class="tool">plan_dispatch</span> 증편·처리 여력`,`증편 ${tk}회 · 음식물 자원화시설 피크일 처리량 용량 340t 이내 확인`);
+    await wait(500);
+    step("✓","ok",`<span class="tool">write_docs</span> 완성물 작성`,"예보판 · 증편 계획서 · 업체 요청 문자 · 다국어 안내문 · 반출 신청서");
+    await wait(400);
+    step("✓","ok",`<span class="tool">check_export</span> 반출 검사`,"10 미만 집계 칸 0개 · 태그번호 미포함 → 반출 가능");
+    await wait(400);
+    const top=ST.R[0], pk=top.days.reduce((m,d,i)=>d.r>top.days[m].r?i:m,0);
+    add(`<b>완료</b> — 3단계 핫스팟 ${ST.R.filter(a=>a.max===3).length}곳, 증편 ${tk}회 제안. 가장 바쁜 곳은 <b>${top.n} ${DAYS[pk]}</b>(평소 대비 +${Math.round((top.days[pk].r-1)*100)}%). 담당자 확인 필요 2건은 오른쪽 아래 표시.`,"msg agent");
+    ST.ran=true; renderTabs(); show("board");
+    $("checkNote").textContent=`확인 필요: ① 대천동 11/26 증편 ${(ST.R.find(a=>a.n==="대천동")||{trucks:[0,0,0,0]}).trucks[3]}회 위탁업체 차량 가용 여부 ② 방문자수 1일 지연 데이터 사용`;
+    $("approve").hidden=false; lock(false);
+  }
+  async function runWhy(){
+    lock(true); add(esc($("q").value),"msg user"); await wait(400);
+    step("1","","목표 정리","우도면 지난주(11/9~15) 음식물 증가 원인 분석");
+    await wait(500);
+    step("✓","ok",`<span class="tool">load_history</span>`,"우도면 음식물 지난주 vs 직전 4주 같은 요일 평균");
+    await wait(500);
+    step("✓","ok",`<span class="tool">get_visitors</span> · <span class="tool">get_ferry</span>`,"방문자수 저장본 · 여객선 수송 비중");
+    await wait(500);
+    step("✓","ok",`<span class="tool">decompose</span> 원인 분해`,"회귀 기여도 분해: 관광객 · 연휴 · 날씨 · 설명 안 되는 몫");
+    await wait(500);
+    add(`<b>우도면 하루 평균 4.2t → 5.5t (+31%)</b><br>${waterfall()}<div class="muted">관광객 증가가 가장 큰 원인, 설명 안 되는 몫 0.1t은 행사 등 미확인 요인 · 예시 값</div>`,"msg agent");
+    lock(false);
+  }
+  async function runCruise(){
+    if(!ST.ran){add("먼저 '다음 주 수거 계획 짜 줘' 실행 필요","msg agent");return}
+    lock(true); add(esc($("q").value),"msg user"); await wait(400);
+    ST.cruise=3;
+    step("1","","목표 정리","11/26 강정항 크루즈 1척 → 3척 가정으로 계획 수정");
+    await wait(500);
+    step("↺","ok","데이터 재사용","과거 배출·날씨·항공 조회 결과 재사용 (다시 부르지 않음)");
+    await wait(500);
+    ST.R=calc();
+    step("✓","ok",`<span class="tool">forecast_waste</span> 재계산`,"크루즈 인원 +6,000명 반영");
+    await wait(500);
+    const tk=ST.R.reduce((s,a)=>s+a.tk,0), dc=ST.R.find(a=>a.n==="대천동");
+    step("✓","ok",`<span class="tool">plan_dispatch</span> · <span class="tool">write_docs</span>`,`증편 ${tk}회로 변경 · 대천동 11/26 ${dc?dc.trucks[3]:0}회 · 계획서·문자 갱신`);
+    await wait(400);
+    add(`<b>계획 수정 완료</b> — 대천동 11/26 등급 ${dc?dc.days[3].g:"-"}단계, 중국어 안내문 우선 배포 권고.`,"msg agent");
+    $("checkNote").textContent=`확인 필요: ① 대천동 11/26 증편 ${dc?dc.trucks[3]:0}회 위탁업체 차량 가용 여부 ② 크루즈 3척은 가정값`;
+    renderTabs(); show(ST.tab); lock(false);
+  }
+  function waterfall(){
+    const parts=[["평소",4.2,"base"],["관광객 증가",0.8],["주말 행사·연휴",0.3],["맑은 날씨",0.1],["미확인",0.1],["지난주",5.5,"total"]];
+    const W=340,H=150,max=6,x0=10,bw=48,gap=8,y=v=>H-24-(v/max)*(H-40);
+    let acc=0,s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="우도면 음식물 증가 원인 분해" style="width:100%;max-width:420px;margin-top:6px">`;
+    parts.forEach(([l,v,k],i)=>{
+      const x=x0+i*(bw+gap); let y1,y2,col;
+      if(k){y1=y(v);y2=y(0);col=k==="base"?"var(--g0)":"var(--brand2)";acc=k==="base"?v:acc}
+      else{y1=y(acc+v);y2=y(acc);acc+=v;col="var(--g2)"}
+      s+=`<rect x="${x}" y="${y1}" width="${bw}" height="${Math.max(1,y2-y1)}" fill="${col}" stroke="var(--line)"/>`;
+      s+=`<text x="${x+bw/2}" y="${y1-4}" font-size="10" text-anchor="middle" fill="var(--ink)">${k?v.toFixed(1):"+"+v.toFixed(1)}</text>`;
+      s+=`<text x="${x+bw/2}" y="${H-8}" font-size="9" text-anchor="middle" fill="var(--sub)">${l}</text>`;
+    });
+    return s+"</svg>";
+  }
+  // ---------- 완성물 ----------
+  const TABS=[["board","예보판"],["plan","증편 계획서"],["sms","업체 문자"],["notice","안내문"],["export","반출 신청서"],["check","검증 보고"]];
+  function renderTabs(){
+    $("tabs").innerHTML=TABS.map(([k,l])=>`<button type="button" role="tab" data-k="${k}" aria-selected="${k===ST.tab}">${l}</button>`).join("");
+    $("tabs").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>show(b.dataset.k)));
+  }
+  function show(k){
+    ST.tab=k; $("tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.k===k));
+    const R=ST.R; if(!R) return;
+    const tk=R.reduce((s,a)=>s+a.tk,0), tot=R.reduce((s,a)=>s+a.sum,0), us=R.reduce((s,a)=>s+a.days.reduce((t,d)=>t+d.usual,0),0);
+    const hot=R.filter(a=>a.max>0);
+    if(k==="board"){
+      let h=`<div class="kpis"><div class="kpi"><b>${tot.toFixed(0)}t</b><span>7일 예상 (평소 ${us.toFixed(0)}t)</span></div><div class="kpi"><b>${R.filter(a=>a.max===3).length}곳</b><span>3단계 핫스팟</span></div><div class="kpi"><b>${tk}회</b><span>증편 제안</span></div><div class="kpi"><b>±11%</b><span>검증 오차 (예시)</span></div></div>`;
+      h+=`<div class="tblwrap"><table><thead><tr><th style="text-align:left">읍면동</th>${DAYS.map(d=>`<th>${d}</th>`).join("")}<th>증편</th></tr></thead><tbody>`;
+      R.forEach(a=>{h+=`<tr><td class="area">${a.n}</td>${a.days.map(d=>`<td class="lv${d.g}" title="평소 대비 ${Math.round((d.r-1)*100)}%">${d.v.toFixed(1)}</td>`).join("")}<td><b>${a.tk||"-"}</b></td></tr>`});
+      h+=`</tbody></table></div><div class="legend"><span><i class="lv0"></i>평소</span><span><i class="lv1"></i>1단계 +15%</span><span><i class="lv2"></i>2단계 +30%</span><span><i class="lv3"></i>3단계 +50%</span><span>단위: 톤/일</span></div>`;
+      $("out").innerHTML=h; return;
+    }
+    if(k==="plan"){
+      const rows=hot.filter(a=>a.tk).map(a=>`  · ${a.n}: ${a.trucks.map((t,i)=>t?DAYS[i]+" "+t+"회":"").filter(Boolean).join(", ")}`).join("\n");
+      doc(`11월 4주차(11/23~11/29) 생활폐기물 수거 증편 계획(안)
+
+1. 목적
+  관광객·날씨·크루즈 입항을 반영한 7일 배출 예보로 클린하우스 넘침 사전 방지
+
+2. 예보 요약 (${ST.region})
+  · 7일 예상 배출량 ${tot.toFixed(0)}t (평소 ${us.toFixed(0)}t, +${Math.round((tot/us-1)*100)}%)
+  · 3단계 핫스팟 ${R.filter(a=>a.max===3).length}곳, 2단계 ${R.filter(a=>a.max===2).length}곳
+  · 크루즈 11/26(목) 강정항 ${ST.cruise}척 입항
+
+3. 증편 계획 (총 ${tk}회, 1회 2.5t 기준)
+${rows||"  · 증편 없음"}
+
+4. 처리 여력
+  · 음식물 자원화시설 피크일 처리량 용량(340t/일) 이내
+
+5. 근거·오차
+  · 센터 음식물(5-05·5-06)·종량제봉투(5-03), 기상청 예보, 항공·크루즈 일정
+  · 지난 4주 검증 오차 ±11% (요일 기준선 ±18%)
+  · 관광공사 방문자수는 11/15 저장본 사용 (1일 지연)
+
+6. 담당자 확인 사항
+  · 대천동 11/26 증편 차량 가용 여부 (위탁업체 확인)
+
+※ 시연용 예시 값`);return;
+    }
+    if(k==="sms"){
+      const dc=R.find(a=>a.n==="대천동");
+      doc(`[수거 증편 요청] ○○환경 담당자님 안녕하세요.
+11/26(목) 강정항 크루즈 ${ST.cruise}척 입항으로 대천동(중문) 음식물 배출 증가 예상.
+· 대상: 대천동 클린하우스
+· 일시: 11/26(목) 오후~야간
+· 증편: ${dc?dc.trucks[3]:0}회 추가 (1회 2.5t 기준)
+차량 가용 여부 11/24(화)까지 회신 부탁드립니다.
+- 서귀포시 청소 담당 (시연용 예시)`);return;
+    }
+    if(k==="notice"){
+      const N={ko:`[중문관광단지 방문객께]\n쓰레기는 되가져가시거나 가까운 클린하우스에 버려 주세요.\n· 재활용품은 종류별로 나눠 주세요.\n· 음식물 쓰레기는 전용 수거함에 넣어 주세요.\n깨끗한 제주를 함께 지켜 주셔서 감사합니다.`,
+        zh:`【致中文旅游区的游客】\n请将垃圾带走，或投放到附近的垃圾分类投放点（Clean House）。\n· 可回收物请分类投放。\n· 厨余垃圾请投入专用回收箱。\n感谢您与我们一起守护干净的济州！`,
+        en:`[To visitors of Jungmun Resort]\nPlease take your trash with you or use the nearest Clean House.\n· Sort recyclables by type.\n· Put food waste in the food-waste bins.\nThank you for helping keep Jeju clean!`};
+      $("out").innerHTML=`<div class="langs">${["ko","zh","en"].map(l=>`<button type="button" data-l="${l}" aria-pressed="${l===ST.lang}">${{ko:"한국어",zh:"中文",en:"English"}[l]}</button>`).join("")}</div><div class="doc">${esc(N[ST.lang])}</div><p class="muted">크루즈 입항일 중국어 우선 · 언어 비중은 센터 4-15 외국인 유동인구로 결정</p>`;
+      $("out").querySelectorAll(".langs button").forEach(b=>b.addEventListener("click",()=>{ST.lang=b.dataset.l;show("notice")}));return;
+    }
+    if(k==="export"){
+      doc(`제주빅데이터센터 분석 결과 반출 신청서 (초안)
+
+· 과제명: 쓰레기 예보관 — 생활·관광폐기물 7일 배출 예보
+· 반출 대상: 집계 결과 파일 3종
+   1) 읍면동·일별 음식물 배출량 합계 (5-05·5-06)
+   2) 읍면동·일별 종량제봉투 판매 합계 (5-03)
+   3) 읍면동·주별 관광객 비중 지수 (4-11·4-15, 응용집계)
+· 반출 형태: 원본 반출 가능 데이터 집계 + 민간 데이터 응용집계
+· 비식별 처리: 태그번호 미포함, 10 미만 칸 0개 (자동 검사 통과)
+· 사용 목적: 수거 증편 계획 수립용 예보 모델 입력
+
+※ 시연용 초안, 실제 신청은 센터 양식으로 제출`);return;
+    }
+    if(k==="check"){
+      $("out").innerHTML=`<p style="margin:0 0 6px;font-size:13.5px"><b>지난 4주 검증 — 예보 vs 실제 (제주 전체 일 합계, 예시)</b></p>${backtest()}<div class="tblwrap"><table><tr><th style="text-align:left">방식</th><th>평균 오차</th><th>판정</th></tr><tr><td class="area">요일 기준선</td><td>±18%</td><td>비교 기준</td></tr><tr><td class="area">에이전트 예보</td><td><b>±11%</b></td><td>채택</td></tr></table></div><p class="muted">기준선보다 나쁘면 에이전트가 기준선으로 자동 전환하고 그 사실을 보고 · 예시 값</p>`;return;
+    }
+  }
+  function backtest(){
+    const n=28,W=520,H=170; const act=[],pred=[];
+    for(let i=0;i<n;i++){const w=[0.96,0.97,0.98,1.0,1.06,1.15,1.12][i%7];const base=150*w*(1+0.08*Math.sin(i/4));act.push(base*(1+0.07*Math.sin(i*1.7)));pred.push(base*(1+0.03*Math.cos(i*1.3)))}
+    const mx=Math.max(...act,...pred)*1.05,mn=Math.min(...act,...pred)*0.95,X=i=>30+i*(W-40)/(n-1),Y=v=>H-22-(v-mn)/(mx-mn)*(H-36);
+    const path=a=>a.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="지난 4주 예보와 실제 비교" style="width:100%">
+      <path d="${path(act)}" fill="none" stroke="var(--sub)" stroke-width="2"/>
+      <path d="${path(pred)}" fill="none" stroke="var(--brand2)" stroke-width="2.2" stroke-dasharray="5 4"/>
+      <text x="${X(n-1)}" y="${Y(act[n-1])-6}" font-size="11" text-anchor="end" fill="var(--sub)">실제</text>
+      <text x="${X(n-1)}" y="${Y(pred[n-1])+14}" font-size="11" text-anchor="end" fill="var(--brand2)">예보</text>
+      <text x="30" y="${H-6}" font-size="10" fill="var(--sub)">10/26</text><text x="${W-10}" y="${H-6}" font-size="10" text-anchor="end" fill="var(--sub)">11/22</text></svg>`;
+  }
+  function doc(t){$("out").innerHTML=`<div class="doc">${esc(t)}</div><div class="row" style="margin-top:8px"><button class="ghost" type="button" id="cp">복사</button> <span class="muted" id="cpm"></span></div>`;
+    $("cp").addEventListener("click",()=>{try{navigator.clipboard.writeText(t).then(()=>$("cpm").textContent="복사 완료",()=>$("cpm").textContent="복사 불가 — 길게 눌러 선택")}catch(e){$("cpm").textContent="복사 불가 — 길게 눌러 선택"}})}
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+  // ---------- 입력 ----------
+  const Q=[["다음 주 수거 계획 짜 줘","plan"],["지난주 우도 음식물 왜 늘었어?","why"],["크루즈 3척으로 늘면 계획 바꿔 줘","cruise"]];
+  $("chips").innerHTML=Q.map(([q])=>`<button type="button">${q}</button>`).join("");
+  $("chips").querySelectorAll("button").forEach((b,i)=>b.addEventListener("click",()=>{$("q").value=Q[i][0];route()}));
+  function route(){const q=$("q").value; if(/왜|원인/.test(q)) runWhy(); else if(/크루즈|척/.test(q)) runCruise(); else runPlan();}
+  $("askForm").addEventListener("submit",e=>{e.preventDefault();route()});
+  function lock(on,keepChips){$("go").disabled=on;$("chips").querySelectorAll("button").forEach(b=>b.disabled=on&&!keepChips)}
+  $("ok").addEventListener("click",()=>{$("approve").innerHTML=`<span class="done">승인 완료 — 계획서 PDF 저장·업체 문자 발송 대기열 등록 (시연)</span>`;add("담당자 승인 완료. 업체 문자는 담당자 확인 후 발송, 다음 주 월요일 예보 vs 실제 비교 보고 예약.","msg agent")});
+  $("revise").addEventListener("click",()=>{$("q").value="크루즈 3척으로 늘면 계획 바꿔 줘";$("q").focus()});
+})();
+</script>
+</body>
+</html>
