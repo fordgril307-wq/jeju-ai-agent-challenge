@@ -15,10 +15,11 @@
 
 🎯 타깃 정리: [docs/target-definition.md](docs/target-definition.md)
 
-📐 기능명세서·데이터 명세서 (1안 · 2안-B)
+📐 기능명세서·데이터 명세서 (1안 · 2안-A · 2안-B)
 - 1안: [기능명세서](docs/spec/1안_기능명세서.md) · [데이터 명세서](docs/spec/1안_데이터명세서.md)
+- 2안-A: [기능명세서](docs/spec/2안A_기능명세서.md) · [데이터 명세서](docs/spec/2안A_데이터명세서.md)
 - 2안-B: [기능명세서](docs/spec/2안B_기능명세서.md) · [데이터 명세서](docs/spec/2안B_데이터명세서.md)
-- PDF 묶음 (세로형 17쪽, 데이터 선순환 구조 포함): [docs/spec/기능·데이터명세서_1안_2안B.pdf](docs/spec/기능·데이터명세서_1안_2안B.pdf)
+- PDF 묶음 (세로형 25쪽, 세 안 모두·데이터 선순환 구조 포함): [docs/spec/기능·데이터명세서_1안_2안A_2안B.pdf](docs/spec/기능·데이터명세서_1안_2안A_2안B.pdf)
 
 ## 자료조사
 - 📄 [docs/topic-research-brief_v4.pdf](docs/topic-research-brief_v4.pdf) · 수정용 [PPTX](docs/topic-research-brief_v4.pptx) — 57쪽, 두 안 동일 구조 (문제 · 타깃층 · 데이터 · 에이전트 활용 · 시연 · 기대효과 · 차별화·위험), 추천 없는 비교, 데이터·기사 출처 포함
