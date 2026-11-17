@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+data/cache/*
+data/feedback/*
+data/center/*
+data/public/*
+outputs/*
+!**/.gitkeep
+!data/center/README.md
+!data/public/README.md

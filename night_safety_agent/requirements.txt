@@ -1,0 +1,13 @@
+# Python 3.10 이상 (센터 PC: Windows, i7-8700 · GTX 1060 · RAM 32GB)
+streamlit>=1.40,<2
+pandas>=2.1
+numpy>=1.26
+shapely>=2.0
+plotly>=5.20
+matplotlib>=3.8
+python-dotenv>=1.0
+# 선택: LLM 사용 시
+anthropic>=0.40
+openai>=1.50
+# 테스트
+pytest>=8

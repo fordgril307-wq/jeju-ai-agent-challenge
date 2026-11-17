@@ -21,6 +21,11 @@
 - 2안-B: [기능명세서](docs/spec/2안B_기능명세서.md) · [데이터 명세서](docs/spec/2안B_데이터명세서.md)
 - PDF 묶음 (세로형 26쪽, 세 안 모두·데이터 선순환 구조 포함): [docs/spec/기능·데이터명세서_1안_2안A_2안B.pdf](docs/spec/기능·데이터명세서_1안_2안A_2안B.pdf)
 
+## 🛠️ 에이전트 구현 (2안-A 밤길 안심 예보관)
+- 코드: [night_safety_agent/](night_safety_agent/) — `run.bat` 더블클릭으로 실행, LLM 없이도 전체 흐름 동작 (Claude·OpenAI·Ollama 선택)
+- 사용법·데이터 교체·계산 방식: [night_safety_agent/README.md](night_safety_agent/README.md)
+- 현재 밤 인원·가로등·CCTV 등은 예시 저장본 → 실데이터 CSV를 `data/public` · `data/center`에 넣으면 자동 교체
+
 ## 자료조사
 - 📄 [docs/topic-research-brief_v4.pdf](docs/topic-research-brief_v4.pdf) · 수정용 [PPTX](docs/topic-research-brief_v4.pptx) — 57쪽, 두 안 동일 구조 (문제 · 타깃층 · 데이터 · 에이전트 활용 · 시연 · 기대효과 · 차별화·위험), 추천 없는 비교, 데이터·기사 출처 포함
 - 이전 자료: [docs/team-brief_topic-selection.pdf](docs/team-brief_topic-selection.pdf) (11/6, 탐나는전 vs 쓰레기)
